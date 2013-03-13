@@ -2,14 +2,16 @@
 require 'net/http'
 require 'rubygems'
 require 'pony'
-require 'inifile'
 
 def send_mail(body, params)
 	begin
+		if (body.nil? || params['recepient'].nil? || params['server'].nil? || params['login'].nil? || params['pass'].nil?) then
+			raise ArgumentError, "Empty parameters. Fill all required" 
+		end
 		Pony.mail(
 		:to			=>	params['recepient'],
-		:from		=>	params['sender'],
-		:subject 	=>	'Новое объявление',
+		:from		=>	params['sender'] || "Mailer",
+		:subject 	=>	params['subject'] || "Новое объявление",
 		:html_body 	=> 	body,
 		:charset	=>	'utf-8',
 		:via		=>	'smtp',
@@ -28,7 +30,7 @@ def send_mail(body, params)
 	end;
 end
 
-def parse(html)
+def parse(html, first_elem = [])
 begin
 	ads = html.split('<div class="t_i_i t_i');
 	elems_array = [["title", "link", "cost", "time", "desc"]] #just for info
@@ -53,6 +55,9 @@ begin
 			end
 		end;
 		elems_array.push([title, link, cost, time, desc]);
+		if(elems_array.last == first_elem) then
+			return elems_array
+		end
 	}
 	return elems_array;
 rescue
@@ -80,18 +85,31 @@ def fetch(uri_str, limit = 10)
 end
 
 def create_default_config
-	new_ini = IniFile.new("[main]\nurl = url (in doublequotes)\nsleep_time = 120\n[mail]\nrecepient = recepient\nsender = sender@server\nsubject = Новая комната (in doublequotes)\nserver = mail.ru\nlogin = login\npass = password", :filename => 'config.ini', :encoding => 'UTF-8');
-	new_ini.write
+	config = {
+		'main' => { 'url' => "http://www.avito.ru/", 'sleep_time' => 10},
+		'mail' => { 'recepient' => "zduderman@gmail.com", 'sender'=> "duderman@mail.ru", 'subject'=> "Новое объявление", 'server'=> "mail.ru", 'login' => "duderman", 'pass'=> "as8F9P"}
+	}
+	File.open("config.yml", "w") do |file|
+  		file.write config.to_yaml
+	end
 end
 
 #Main
-config = IniFile.load('config.ini', :encoding => 'UTF-8');
-if(config == nil) then
+begin
+	config = YAML::load_file "config.yml"
+rescue
 	config = create_default_config
 	puts 'Default config created. Please fill it and try again';
 	exit 1;
 end;
+if config['main']['url'].nil? then
+	puts "URL is required. Please set it in config.yml"
+end
+sleep_time = 10
+sleep_time = config['main']['sleep_time'].to_i if !config['main']['sleep_time'].nil?
 puts "Script started with url " + config['main']['url'];
+puts "subject is" + config['mail']['subject']
+puts send_mail "Тест", config['mail']
 
 puts "Initial Check";
 test_resp = fetch(config['main']['url']);
