@@ -25,7 +25,7 @@ def send_mail(body, params)
 		}
 		);
 	rescue
-		puts "Error while sending email. Check params";
+		log "Error while sending email. Check params", "error"
 		exit 1;
 	end;
 end
@@ -44,7 +44,12 @@ begin
 		link = e.split('href="')[1].split('"')[0];
 		link = "http://www.avito.ru"+link;
 		title = e.split('title="')[1].split('"')[0].sub("&laquo;","«").sub("&raquo;","»");
-		cost = e.split('<span>')[1].split('</span>')[0].sub("&nbsp;"," ");
+		cost = e.split('<span>')[1]
+		if(cost.nil?) then
+			cost = ""
+		else
+			cost = cost.split('</span>')[0].sub("&nbsp;"," ");
+		end
 	
 		desc = "Описание отсутствует"
 		resp = fetch(link);
@@ -62,7 +67,7 @@ begin
 	return elems_array;
 rescue
 	return "Error"
-end;
+end
 end
 
 def fetch(uri_str, limit = 10)
@@ -86,52 +91,57 @@ end
 
 def create_default_config
 	config = {
-		'main' => { 'url' => "http://www.avito.ru/", 'sleep_time' => 10},
-		'mail' => { 'recepient' => "zduderman@gmail.com", 'sender'=> "duderman@mail.ru", 'subject'=> "Новое объявление", 'server'=> "mail.ru", 'login' => "duderman", 'pass'=> "as8F9P"}
+		'main' => { 'url' => "http://www.avito.ru/", 'sleep_time' => 300},
+		'mail' => { 'recepient' => "recepient", 'sender'=> "sender", 'subject'=> "Mail subject", 'server'=> "server.ru", 'login' => "login", 'pass'=> "pass"}
 	}
-	File.open("config.yml", "w") do |file|
+	File.open( (File.expand_path(File.dirname(__FILE__))+"/config.yml"), "w") do |file|
   		file.write config.to_yaml
 	end
 end
 
+def log(text, level = "DEBUG")
+	message = Time.now.strftime("%X")+" ["+level.upcase+"] "+text
+	puts message
+end
+
 #Main
+log "Opening config in "+File.expand_path(File.dirname(__FILE__))+"/config.yml"
 begin
-	config = YAML::load_file "config.yml"
+	config = YAML::load_file File.expand_path(File.dirname(__FILE__))+"/config.yml"
 rescue
 	config = create_default_config
-	puts 'Default config created. Please fill it and try again';
+	log 'Default config created. Please fill it and try again', "warn"
 	exit 1;
 end;
 if config['main']['url'].nil? then
-	puts "URL is required. Please set it in config.yml"
+	log "URL is required. Please set it in config.yml", "error"
+	exit 1;
 end
-sleep_time = 10
+sleep_time = 300
 sleep_time = config['main']['sleep_time'].to_i if !config['main']['sleep_time'].nil?
-puts "Script started with url " + config['main']['url'];
-puts "subject is" + config['mail']['subject']
-puts send_mail "Тест", config['mail']
+log "Script started with url " + config['main']['url'];
 
-puts "Initial Check";
+log "Initial Check";
 test_resp = fetch(config['main']['url']);
 if(test_resp == nil) then
-	puts "Can't get page. Do you have internet connection and the url correct?";
+	log "Can't get page. Do you have internet connection and the url correct?", "error"
 	exit 1;
 elsif (parse(test_resp) == "Error") then
-	puts "Can't parse page. Check url";
+	log "Can't parse page. Check url", "error"
 	exit 1;
 end
-puts "OK";
+log "OK";
 
 last_array = [["title", "link", "cost", "time", "desc"]]; 
 last_array.shift;
 is_error = false;
 while 1
-	puts "Getting new page ";
+	log "Getting new page ";
 	resp = fetch(config['main']['url']);
 	if(resp == nil) then
-		puts "Something wrong with internet connection"
+		log "Something wrong with internet connection", "error"
 	else
-		puts "Parsing response";
+		log "Parsing response";
 		if(!last_array.empty?) then
 			new_array = parse(resp, last_array[0]);
 		else
@@ -140,25 +150,25 @@ while 1
 		if(new_array == "Error" || new_array.empty?) then
 			if(!is_error) then
 				is_error = true;
-				puts "Can't parse page";
+				log "Can't parse page", "error"
 				send_mail("Ошибка при обработке страницы. Скрипт продожит работу и попытается устранить ошибку", config['mail']);
 			end
 		else
 			if(is_error) then
 				is_error = false;
-				puts "Script working again"
+				log "Script working again"
 				send_mail("Работа скрипта восстановлена", config['mail']);
 			end
 			if(last_array.empty?) then
-				puts "First run. Initial array obtained";
+				log "First run. Initial array obtained";
 				last_array = new_array;
 			elsif(new_array[0] == last_array[0]) then
-				puts "Nothing has changed";
+				log "Nothing has changed";
 			elsif (new_array.length!=1) then
-				puts "Mailing";
+				log "Mailing";
 				diff_array = new_array - last_array;
 				last_array = new_array;
-				puts "Elements count is "+diff_array.length.to_s;
+				log "Elements count is "+diff_array.length.to_s;
 				body="";
 				diff_array.each{ |e|
 					body+='<h2>'+e[0]+'</h2><br /><a href="'+e[1]+'">'+e[1]+'</a><br /><h3>'+e[2]+'</h3><br />Опубликовано в '+e[3]+'<br /><br />'+e[4]+'<br /><br />';
@@ -167,6 +177,6 @@ while 1
 			end;
 		end
 	end
-	puts "Done. zzzz";
-	sleep(config['main']['sleep_time'].to_i);
+	log "Done. zzzz";
+	sleep(sleep_time);
 end
