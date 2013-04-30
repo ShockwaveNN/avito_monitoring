@@ -26,7 +26,7 @@ def send_mail(body, params)
 		);
 	rescue
 		log "Error while sending email. Check params", "error"
-		exit 1;
+		exiting
 	end;
 end
 
@@ -60,7 +60,7 @@ begin
 			end
 		end;
 		elems_array.push([title, link, cost, time, desc]);
-		if(elems_array.last == first_elem) then
+		if(!first_elem.empty? && elems_array.last == first_elem) then
 			return elems_array
 		end
 	}
@@ -104,6 +104,12 @@ def log(text, level = "DEBUG")
 	puts message
 end
 
+def exiting
+	puts "Press ENTER to continue"
+	gets
+	exit 1
+end
+
 #Main
 log "Opening config in "+File.expand_path(File.dirname(__FILE__))+"/config.yml"
 begin
@@ -111,11 +117,11 @@ begin
 rescue
 	config = create_default_config
 	log 'Default config created. Please fill it and try again', "warn"
-	exit 1;
+	exiting
 end;
 if config['main']['url'].nil? then
 	log "URL is required. Please set it in config.yml", "error"
-	exit 1;
+	exiting
 end
 sleep_time = 300
 sleep_time = config['main']['sleep_time'].to_i if !config['main']['sleep_time'].nil?
@@ -125,10 +131,10 @@ log "Initial Check";
 test_resp = fetch(config['main']['url']);
 if(test_resp == nil) then
 	log "Can't get page. Do you have internet connection and the url correct?", "error"
-	exit 1;
+	exiting
 elsif (parse(test_resp) == "Error") then
 	log "Can't parse page. Check url", "error"
-	exit 1;
+	exiting
 end
 log "OK";
 
