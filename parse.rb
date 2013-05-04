@@ -76,8 +76,8 @@ def fetch(uri_str, limit = 10)
   begin
   	response = Net::HTTP.get_response(URI(uri_str))
   	case response
-  	when Net::HTTPSuccess then
-  	  response.body
+      when Net::HTTPSuccess then
+  	  response.body.force_encoding('UTF-8')
   	when Net::HTTPRedirection then
   	  location = response['location']
   	  warn "redirected to #{location}"
