@@ -192,7 +192,7 @@ while 1
       end
     end
 	end
-	log 'Done. zzzz'
+	log "Done. Sleeping for #{sleep_time} seconds"
 
   sleep(sleep_time)
 end
